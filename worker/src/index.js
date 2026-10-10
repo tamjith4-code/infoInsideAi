@@ -13,7 +13,8 @@ const I = {
     fgNames: ['Extreme Fear', 'Fear', 'Neutral', 'Greed', 'Extreme Greed'],
     yday: 'Yesterday', wago: '1 week ago', mago: '1 month ago', avg: 'Average', low: 'Low', high: 'High',
     vol: 'Volume', thisM: 'This month', lastM: 'Last month', range24: '24h range', refresh: '🔄 Refresh',
-    calcHelp: "🧮 <b>Crypto Calculator</b>\nSend an amount and a coin (top 100 coins):\n\n<code>5 eth</code>\n<code>0.001 bnb</code>\n<code>2 sol to btc</code>\n\nResult is shown in USDT.",
+    calcHelp: "🧮 <b>Crypto Calculator</b>\nSend an amount and a coin name (example: 5 eth). Result is shown in USDT.",
+    gvol: "Global 24h volume (all exchanges)",
     calcNF: 'Coin not found in the top 100.', gain: '🟢 Top Gainers (24h)', lose: '🔴 Top Losers (24h)',
     err: 'Data is temporarily unavailable. Please try again.',
   },
@@ -28,7 +29,8 @@ const I = {
     fgNames: ['চরম ভয়', 'ভয়', 'নিরপেক্ষ', 'লোভ', 'চরম লোভ'],
     yday: 'গতকাল', wago: '১ সপ্তাহ আগে', mago: '১ মাস আগে', avg: 'গড়', low: 'সর্বনিম্ন', high: 'সর্বোচ্চ',
     vol: 'ভলিউম', thisM: 'এই মাস', lastM: 'গত মাস', range24: '২৪ ঘণ্টার রেঞ্জ', refresh: '🔄 রিফ্রেশ',
-    calcHelp: "🧮 <b>ক্রিপ্টো ক্যালকুলেটর</b>\nপরিমাণ ও কয়েনের নাম লিখে পাঠান (টপ ১০০ কয়েন):\n\n<code>5 eth</code>\n<code>0.001 bnb</code>\n<code>2 sol to btc</code>\n\nফলাফল USDT-তে দেখাবে।",
+    calcHelp: "🧮 <b>ক্রিপ্টো ক্যালকুলেটর</b>\nপরিমাণ ও কয়েনের নাম লিখে পাঠান (যেমন: 5 eth)। ফলাফল USDT-তে দেখাবে।",
+    gvol: "সব এক্সচেঞ্জ মিলিয়ে ২৪ঘ ভলিউম",
     calcNF: 'টপ ১০০-তে এই কয়েন পাওয়া যায়নি।', gain: '🟢 সর্বোচ্চ বৃদ্ধি (২৪ঘ)', lose: '🔴 সর্বোচ্চ পতন (২৪ঘ)',
     err: 'ডেটা এখন পাওয়া যাচ্ছে না, আবার চেষ্টা করুন।',
   },
@@ -43,7 +45,8 @@ const I = {
     fgNames: ['अत्यधिक डर', 'डर', 'तटस्थ', 'लालच', 'अत्यधिक लालच'],
     yday: 'कल', wago: '1 सप्ताह पहले', mago: '1 महीने पहले', avg: 'औसत', low: 'न्यूनतम', high: 'अधिकतम',
     vol: 'वॉल्यूम', thisM: 'इस महीने', lastM: 'पिछला महीना', range24: '24 घंटे की रेंज', refresh: '🔄 रिफ्रेश',
-    calcHelp: "🧮 <b>क्रिप्टो कैलकुलेटर</b>\nमात्रा और कॉइन लिखकर भेजें (टॉप 100 कॉइन):\n\n<code>5 eth</code>\n<code>0.001 bnb</code>\n<code>2 sol to btc</code>\n\nनतीजा USDT में दिखेगा।",
+    calcHelp: "🧮 <b>क्रिप्टो कैलकुलेटर</b>\nमात्रा और कॉइन का नाम लिखकर भेजें (जैसे: 5 eth)। नतीजा USDT में दिखेगा।",
+    gvol: "सभी एक्सचेंज का 24घं वॉल्यूम",
     calcNF: 'टॉप 100 में यह कॉइन नहीं मिला।', gain: '🟢 टॉप गेनर्स (24घं)', lose: '🔴 टॉप लूज़र्स (24घं)',
     err: 'डेटा अभी उपलब्ध नहीं है, फिर कोशिश करें।',
   },
@@ -58,7 +61,8 @@ const I = {
     fgNames: ['Крайний страх', 'Страх', 'Нейтрально', 'Жадность', 'Крайняя жадность'],
     yday: 'Вчера', wago: 'Неделю назад', mago: 'Месяц назад', avg: 'Среднее', low: 'Мин', high: 'Макс',
     vol: 'Объём', thisM: 'Этот месяц', lastM: 'Прошлый месяц', range24: 'Диапазон 24ч', refresh: '🔄 Обновить',
-    calcHelp: "🧮 <b>Крипто-калькулятор</b>\nОтправьте сумму и монету (топ-100):\n\n<code>5 eth</code>\n<code>0.001 bnb</code>\n<code>2 sol to btc</code>\n\nРезультат показывается в USDT.",
+    calcHelp: "🧮 <b>Крипто-калькулятор</b>\nОтправьте сумму и название монеты (пример: 5 eth). Результат в USDT.",
+    gvol: "Объём за 24ч (все биржи)",
     calcNF: 'Монета не найдена в топ-100.', gain: '🟢 Лидеры роста (24ч)', lose: '🔴 Лидеры падения (24ч)',
     err: 'Данные временно недоступны. Попробуйте ещё раз.',
   },
@@ -73,7 +77,8 @@ const I = {
     fgNames: ['极度恐惧', '恐惧', '中性', '贪婪', '极度贪婪'],
     yday: '昨天', wago: '1周前', mago: '1个月前', avg: '平均', low: '最低', high: '最高',
     vol: '成交量', thisM: '本月', lastM: '上月', range24: '24小时区间', refresh: '🔄 刷新',
-    calcHelp: "🧮 <b>加密货币计算器</b>\n发送数量和币种（前100名）：\n\n<code>5 eth</code>\n<code>0.001 bnb</code>\n<code>2 sol to btc</code>\n\n结果以 USDT 显示。",
+    calcHelp: "🧮 <b>加密货币计算器</b>\n发送数量和币种名称（例如：5 eth）。结果以 USDT 显示。",
+    gvol: "24小时全网成交量",
     calcNF: '前100名中没有找到该币种。', gain: '🟢 24小时涨幅榜', lose: '🔴 24小时跌幅榜',
     err: '数据暂时不可用，请稍后重试。',
   },
@@ -91,6 +96,15 @@ const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 const icon = (s) => (s >= 9 ? '🔴' : s >= 7 ? '🟠' : '🟢');
 const pad = (n) => String(n).padStart(2, '0');
 const fmtDate = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : `${pad(d.getUTCDate())}.${pad(d.getUTCMonth() + 1)}.${d.getUTCFullYear()}`; };
+// news-er somoy user-er language onujayi timezone-e dekhay (bn=GMT+6, hi=GMT+5:30, ru=GMT+3, zh=GMT+8, en=UTC)
+const TZ = { en: [0, 'UTC'], bn: [360, 'GMT+6'], hi: [330, 'GMT+5:30'], ru: [180, 'GMT+3'], zh: [480, 'GMT+8'] };
+const fmtDT = (iso, lang) => {
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const [off, label] = TZ[lang] || TZ.en;
+  const x = new Date(d.getTime() + off * 60000);
+  return `${pad(x.getUTCDate())}.${pad(x.getUTCMonth() + 1)}.${x.getUTCFullYear()} ${pad(x.getUTCHours())}:${pad(x.getUTCMinutes())} ${label}`;
+};
 const btn = (text, data, style) => ({ text, callback_data: data, ...(style ? { style } : {}) });
 const num = (n) => (n >= 1 ? n.toLocaleString('en-US', { maximumFractionDigits: n >= 1000 ? 2 : 4 }) : n === 0 ? '0' : n.toFixed(Math.min(10, Math.max(4, 3 - Math.floor(Math.log10(n))))).replace(/0+$/, '').replace(/\.$/, ''));
 const price = (n) => (n >= 1000 ? n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : num(n));
@@ -140,11 +154,11 @@ const home = (env, id, lang, isAdmin) => send(env, id, I[lang].welcome, { reply_
 // ---------- news ----------
 async function showNews(env, id, lang, cat) {
   const t = I[lang];
-  let q = 'news?select=summaries,score,published_at,created_at&score=gte.5&order=published_at.desc.nullslast,created_at.desc&limit=6';
+  let q = `news?select=summaries,score,published_at,created_at&score=gte.${cat === 'bd' ? 3 : 5}&order=published_at.desc.nullslast,created_at.desc&limit=6`;
   if (cat !== 'latest') q += `&category=eq.${cat}`;
   const rows = await sbj(env, q);
   if (!rows || !rows.length) return send(env, id, t.noNews);
-  const text = rows.map((n) => `${icon(n.score)} ${esc(n.summaries[lang] || n.summaries.en)}\n📊 ${t.impact}: ${n.score}/10 · 📅 ${fmtDate(n.published_at || n.created_at)}`).join('\n\n');
+  const text = rows.map((n) => `${icon(n.score)} ${esc(n.summaries[lang] || n.summaries.en)}\n📊 ${t.impact}: ${n.score}/10${n.published_at ? ' · ' + fmtDT(n.published_at, lang) : ''}`).join('\n\n');
   return send(env, id, text.slice(0, 4000));
 }
 
@@ -186,14 +200,71 @@ async function fgView(env, id, mid, lang, mode) {
   return show(env, id, mid, text, kb);
 }
 
-// ---------- Live prices (Binance public market data) ----------
+// ---------- Market data (Kraken / Binance / CoinGecko / CryptoCompare + Supabase cache) ----------
+async function jget(url, init = {}, ms = 8000) {
+  try {
+    const r = await fetch(url, { ...init, signal: AbortSignal.timeout(ms) });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (e) { return null; }
+}
+const CF_CACHE = { cacheTtlByStatus: { '200-299': 60, '400-599': 0 }, cacheEverything: true };
+const cacheGet = async (env, key) => { const r = await sbj(env, `market_cache?key=eq.${key}&select=value,updated_at`); return Array.isArray(r) && r[0] ? r[0] : null; };
+const cacheSet = (env, key, value) => sb(env, 'market_cache', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates' }, body: JSON.stringify({ key, value, updated_at: new Date().toISOString() }) });
+
+// top 100 coin: [{s:'BTC', p:price, c:change24h, v:volume24h}]
+async function top100(env) {
+  let list = null;
+  const g = await jget('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false',
+    { headers: { 'User-Agent': 'insideinfo-bot', Accept: 'application/json', ...(env.CG_KEY ? { 'x-cg-demo-api-key': env.CG_KEY } : {}) }, cf: CF_CACHE });
+  if (Array.isArray(g) && g.length) list = g.map((x) => ({ s: String(x.symbol).toUpperCase(), p: x.current_price, c: x.price_change_percentage_24h, v: x.total_volume }));
+  if (!list) {
+    const cc = await jget('https://min-api.cryptocompare.com/data/top/mktcapfull?limit=100&tsym=USD', { cf: CF_CACHE });
+    if (cc && Array.isArray(cc.Data)) list = cc.Data.filter((d) => d.RAW && d.RAW.USD).map((d) => ({ s: String(d.CoinInfo.Name).toUpperCase(), p: d.RAW.USD.PRICE, c: d.RAW.USD.CHANGEPCT24HOUR, v: d.RAW.USD.TOTALVOLUME24HTO }));
+  }
+  if (list && list.length) { await cacheSet(env, 'top100', list); return list; }
+  const c = await cacheGet(env, 'top100'); // live na paile shesh jana data
+  return c ? c.value : null;
+}
+
+// BTC/ETH stats - Kraken (prothom), na paile Binance
+async function krakenStats(pair) {
+  const now = Math.floor(Date.now() / 1000), d = new Date();
+  const thisM = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) / 1000;
+  const prevM = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1) / 1000;
+  const base = 'https://api.kraken.com/0/public';
+  const [tk, a, b, c] = await Promise.all([
+    jget(`${base}/Ticker?pair=${pair}`),
+    jget(`${base}/OHLC?pair=${pair}&interval=5&since=${now - 6 * 3600 - 600}`),
+    jget(`${base}/OHLC?pair=${pair}&interval=60&since=${now - 7 * 86400 - 3600}`),
+    jget(`${base}/OHLC?pair=${pair}&interval=1440&since=${prevM - 86400}`),
+  ]);
+  const rows = (j) => { if (!j || (j.error && j.error.length) || !j.result) return null; const k = Object.keys(j.result).find((x) => x !== 'last'); return k ? j.result[k] : null; };
+  const T = tk && tk.result ? Object.values(tk.result)[0] : null;
+  const m5 = rows(a), h1 = rows(b), d1 = rows(c);
+  if (!T || !m5 || !h1 || !d1 || m5.length < 12 || h1.length < 24 || d1.length < 5) return null;
+  const cn = (x) => ({ t: x[0], o: +x[1], c: +x[4], w: +x[5] || +x[4], v: +x[6] });
+  const M5 = m5.map(cn), H1 = h1.map(cn), D1 = d1.map(cn);
+  const sum = (arr) => ({ q: arr.reduce((s, x) => s + x.v * x.w, 0), b: arr.reduce((s, x) => s + x.v, 0) });
+  const last = (arr, n) => arr.slice(-n);
+  const chg = (arr, n) => { const s = last(arr, n); return (s[s.length - 1].c / s[0].o - 1) * 100; };
+  const inM = (lo, hi) => sum(D1.filter((x) => x.t >= lo && x.t < hi));
+  const nz = (o) => (o.b > 0 ? o : null);
+  return {
+    src: 'Kraken', quote: 'USD', last: +T.c[0], high: +T.h[1], low: +T.l[1],
+    c1h: chg(M5, 12), c6h: chg(M5, 72), c24h: chg(H1, 24), c7d: chg(H1, 168), c30d: chg(D1, 30),
+    v1h: sum(last(M5, 12)), v6h: sum(last(M5, 72)), v24h: { b: +T.v[1], q: +T.v[1] * +T.p[1] }, v7d: sum(last(H1, 168)), v30d: sum(last(D1, 30)),
+    vm: nz(inM(thisM, now + 1)), vlm: nz(inM(prevM, thisM)),
+  };
+}
 async function bn(path) {
   for (const base of ['https://data-api.binance.vision', 'https://api.binance.com']) {
-    try { const r = await fetch(base + path); if (r.ok) return await r.json(); } catch (e) { /* try next */ }
+    const j = await jget(base + path, {}, 6000);
+    if (j) return j;
   }
   return null;
 }
-async function coinStats(sym) {
+async function binanceStats(sym) {
   const [t24, m5, h1, d1, mo] = await Promise.all([
     bn(`/api/v3/ticker/24hr?symbol=${sym}`), bn(`/api/v3/klines?symbol=${sym}&interval=5m&limit=72`),
     bn(`/api/v3/klines?symbol=${sym}&interval=1h&limit=168`), bn(`/api/v3/klines?symbol=${sym}&interval=1d&limit=30`),
@@ -204,11 +275,15 @@ async function coinStats(sym) {
   const chg = (k, n) => { const s = k.slice(-n); return (Number(s[s.length - 1][4]) / Number(s[0][1]) - 1) * 100; };
   const mv = (c) => ({ q: Number(c[7]), b: Number(c[5]) });
   return {
-    last: Number(t24.lastPrice), high: Number(t24.highPrice), low: Number(t24.lowPrice),
+    src: 'Binance', quote: 'USDT', last: Number(t24.lastPrice), high: Number(t24.highPrice), low: Number(t24.lowPrice),
     c1h: chg(m5, 12), c6h: chg(m5, 72), c24h: Number(t24.priceChangePercent), c7d: chg(h1, 168), c30d: chg(d1, 30),
     v1h: vq(m5, 12), v6h: vq(m5, 72), v24h: { q: Number(t24.quoteVolume), b: Number(t24.volume) }, v7d: vq(h1, 168), v30d: vq(d1, 30),
     vm: mo && mo.length >= 2 ? mv(mo[1]) : null, vlm: mo && mo.length >= 2 ? mv(mo[0]) : null,
   };
+}
+async function getStats(sym) {
+  const s = await krakenStats(sym === 'BTC' ? 'XBTUSD' : 'ETHUSD');
+  return s || (await binanceStats(sym + 'USDT'));
 }
 function coinBlock(sym, name, s, t) {
   const V = (label, o) => `${label}: ${usd(o.q)} · ${amt(o.b, sym)}`;
@@ -218,55 +293,71 @@ function coinBlock(sym, name, s, t) {
     `1h ${pct(s.c1h)} · 6h ${pct(s.c6h)} · 24h ${pct(s.c24h)}`,
     `7d ${pct(s.c7d)} · 30d ${pct(s.c30d)}`,
     '',
-    `📊 <b>${t.vol}</b> (USDT · ${sym})`,
+    `📊 <b>${t.vol}</b> · ${s.src} (${s.quote} · ${sym})`,
+    s.gv ? `🌐 ${t.gvol}: ${usd(s.gv)}` : null,
     V('1h', s.v1h), V('6h', s.v6h), V('24h', s.v24h), V('7d', s.v7d), V('30d', s.v30d),
     s.vm ? V(t.thisM, s.vm) : null, s.vlm ? V(t.lastM, s.vlm) : null,
   ].filter((x) => x !== null).join('\n');
 }
 async function pricesView(env, id, mid, lang) {
   const t = I[lang];
-  const [btc, eth] = await Promise.all([coinStats('BTCUSDT'), coinStats('ETHUSDT')]);
-  if (!btc || !eth) return show(env, id, mid, t.err, [[btn(t.refresh, 'px:r', 'primary')]]);
+  const kb = [[btn(t.refresh, 'px:r', 'primary')]];
+  let btc = await getStats('BTC'), eth = btc ? await getStats('ETH') : null, note = '';
+  if (btc && eth) {
+    await cacheSet(env, 'stats', { btc, eth });
+  } else {
+    const c = await cacheGet(env, 'stats');
+    if (!c) return show(env, id, mid, t.err, kb);
+    btc = c.value.btc; eth = c.value.eth;
+    note = ` (cached ${Math.max(1, Math.round((Date.now() - new Date(c.updated_at)) / 60000))} min)`;
+  }
+  const list = await top100(env);
+  if (list) { const gv = (s) => { const x = list.find((y) => y.s === s); return x && x.v ? x.v : null; }; btc.gv = gv('BTC'); eth.gv = gv('ETH'); }
   const d = new Date();
-  const text = `${coinBlock('BTC', '₿ Bitcoin', btc, t)}\n\n${coinBlock('ETH', 'Ξ Ethereum', eth, t)}\n\n🕒 ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())} UTC`;
-  return show(env, id, mid, text, [[btn(t.refresh, 'px:r', 'primary')]]);
+  const text = `${coinBlock('BTC', '₿ Bitcoin', btc, t)}\n\n${coinBlock('ETH', 'Ξ Ethereum', eth, t)}\n\n🕒 ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())} UTC${note}`;
+  return show(env, id, mid, text, kb);
 }
 
-// ---------- CoinGecko: movers + calculator ----------
-async function top100() {
-  try {
-    const r = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false', { headers: { 'User-Agent': 'insideinfo-bot', Accept: 'application/json' }, cf: { cacheTtl: 60, cacheEverything: true } });
-    if (!r.ok) return null;
-    return await r.json();
-  } catch (e) { return null; }
-}
 async function moversView(env, id, lang) {
   const t = I[lang];
-  const list = await top100();
+  const list = await top100(env);
   if (!list) return send(env, id, t.err);
-  const c = list.filter((x) => x.price_change_percentage_24h != null).sort((a, b) => b.price_change_percentage_24h - a.price_change_percentage_24h);
-  const line = (x, i) => `${i + 1}. <b>${esc(x.symbol.toUpperCase())}</b>  $${num(x.current_price)}  ${pct(x.price_change_percentage_24h)}`;
+  const c = list.filter((x) => x.c != null).sort((a, b) => b.c - a.c);
+  const line = (x, i) => `${i + 1}. <b>${esc(x.s)}</b>  $${num(x.p)}  ${pct(x.c)}`;
   return send(env, id, `<b>${t.gain}</b>\n${c.slice(0, 5).map(line).join('\n')}\n\n<b>${t.lose}</b>\n${c.slice(-5).reverse().map(line).join('\n')}`);
 }
 async function calc(env, id, lang, amount, from, to) {
   const t = I[lang];
-  const list = await top100();
-  const find = (s) => (list ? list.find((x) => x.symbol.toLowerCase() === s.toLowerCase()) : null);
-  const usdPrice = async (s) => {
-    if (['usdt', 'usd', 'usdc'].includes(s.toLowerCase())) return 1;
-    const c = find(s);
-    if (c) return c.current_price;
-    if (!list) { const j = await bn(`/api/v3/ticker/price?symbol=${s.toUpperCase()}USDT`); if (j) return Number(j.price); }
-    return null;
-  };
+  const list = await top100(env);
+  if (!list) return send(env, id, t.err);
+  const usdPrice = (s) => { s = s.toUpperCase(); if (['USDT', 'USD', 'USDC'].includes(s)) return 1; const c = list.find((x) => x.s === s); return c ? c.p : null; };
   const a = Number(String(amount).replace(/,/g, ''));
-  const p1 = await usdPrice(from);
   const target = to || 'usdt';
-  const p2 = await usdPrice(target);
+  const p1 = usdPrice(from), p2 = usdPrice(target);
   if (!p1 || !p2 || !isFinite(a)) return send(env, id, t.calcNF);
   const out = (a * p1) / p2, T = target.toUpperCase(), F = from.toUpperCase();
   const stable = ['USDT', 'USD', 'USDC'].includes(T);
   return send(env, id, `🧮 <b>${num(a)} ${esc(F)}</b> = <b>${num(out)} ${esc(stable ? 'USDT' : T)}</b>\n\n1 ${esc(F)} ≈ $${num(p1)}${stable ? '' : `\n${num(a)} ${esc(F)} ≈ $${num(a * p1)}`}`);
+}
+async function diag(env, id) {
+  const tests = [
+    ['Kraken', 'https://api.kraken.com/0/public/Ticker?pair=XBTUSD'],
+    ['Binance vision', 'https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT'],
+    ['Binance main', 'https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT'],
+    ['CoinGecko', 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&per_page=1'],
+    ['CryptoCompare', 'https://min-api.cryptocompare.com/data/price?fsym=BTC&tsyms=USD'],
+    ['Fear&Greed', 'https://api.alternative.me/fng/?limit=1'],
+  ];
+  const lines = await Promise.all(tests.map(async ([n, u]) => {
+    const t0 = Date.now();
+    try {
+      const r = await fetch(u, { headers: { 'User-Agent': 'insideinfo-bot', ...(n === 'CoinGecko' && env.CG_KEY ? { 'x-cg-demo-api-key': env.CG_KEY } : {}) }, signal: AbortSignal.timeout(8000) });
+      return `${r.ok ? '✅' : '❌'} ${n}: ${r.status} (${Date.now() - t0}ms)`;
+    } catch (e) { return `❌ ${n}: ${esc(e.message || e)}`; }
+  }));
+  const c = await cacheGet(env, 'top100');
+  lines.push(`🗄 cache top100: ${c ? c.updated_at : 'empty'}`);
+  return send(env, id, `🔧 <b>Diagnostics</b>\n${lines.join('\n')}`);
 }
 
 // ---------- GitHub trigger ----------
@@ -290,7 +381,7 @@ async function adminHome(env, id, mid) {
     [btn(s.paused === '1' ? '▶️ Resume fetching' : '⏸ Pause fetching', 'ad:pause', s.paused === '1' ? 'success' : 'danger'), btn('🔄 Fetch now', 'ad:run', 'success')],
     [btn(`🔔 Global min score: ${s.push_min_score || 5}`, 'ad:min')],
   ];
-  const help = '⚙️ <b>Admin Panel</b>\n\nCommands:\n/addsource type|name|category|url\n  (type: rss/telegram/api, category: crypto/finance/world/bd)\n/delsource ID\n/setmodel gemini MODEL\n/setmodel groq MODEL\n/broadcast message';
+  const help = '⚙️ <b>Admin Panel</b>\n\nCommands:\n/addsource type|name|category|url\n  (type: rss/telegram/api, category: crypto/finance/world/bd)\n/delsource ID\n/setmodel gemini MODEL\n/setmodel groq MODEL\n/broadcast message\n/diag (API connection test)';
   return show(env, id, mid, help, kb);
 }
 async function usersView(env, id, mid, page) {
@@ -331,6 +422,7 @@ async function adminCmd(env, id, text) {
   const arg = rest.join(' ');
   if (cmd === '/admin') { await adminHome(env, id); return true; }
   if (cmd === '/users') { await usersView(env, id, null, 0); return true; }
+  if (cmd === '/diag') { await diag(env, id); return true; }
   if (cmd === '/addsource') {
     const [type, name, category, url] = arg.split('|').map((s) => s.trim());
     if (!url || !['rss', 'telegram', 'api'].includes(type) || !CATS.includes(category)) { await send(env, id, 'Usage: /addsource rss|Name|crypto|https://...'); return true; }
