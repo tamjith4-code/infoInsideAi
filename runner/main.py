@@ -27,7 +27,7 @@ Rules:
 - score = real impact: 9-10 breaking/major (hack, ETF decision, market crash, war, central-bank move, huge whale move), 7-8 important, 5-6 normal news, 1-4 minor, promotional or opinion.
 - Ads, giveaways, referral links, empty price chatter => score 1-2.
 - If several items report the same event, keep the best one with its real score and give the others score 1.
-- Bangladesh items: give a high score only for major national events.
+- Bangladesh items (category bd): score them on the normal scale (routine national news 5-6, important 7-8, breaking national events 9-10). Only trivial gossip, sports chatter or ads get 1-4.
 - Output every input index exactly once. JSON only, no markdown."""
 
 PROMPT_T = """You are a professional news translator. Input: {"langs":[codes],"items":[{"i","en"}]}.
@@ -66,9 +66,15 @@ def age_h(x):
         return 0
 
 
-def fmt_date(v):
+TZ = {"en": (0, "UTC"), "bn": (360, "GMT+6"), "hi": (330, "GMT+5:30"), "ru": (180, "GMT+3"), "zh": (480, "GMT+8")}
+
+
+def fmt_dt(v, lang):
+    """News-er exact somoy, user-er language onujayi timezone-e (bn=GMT+6)."""
     try:
-        return dt.datetime.fromisoformat(str(v).replace("Z", "+00:00")).strftime("%d.%m.%Y")
+        d = dt.datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+        off, label = TZ.get(lang, TZ["en"])
+        return (d.astimezone(UTC) + dt.timedelta(minutes=off)).strftime("%d.%m.%Y %H:%M") + " " + label
     except Exception:
         return ""
 
@@ -114,11 +120,12 @@ def fetch_api(s):
     if "alternative.me" in s["url"]:
         d = requests.get(s["url"], timeout=20).json()["data"][0]
         yield {"title": f"Crypto Fear & Greed Index: {d['value']} ({d['value_classification']})", "body": "",
-               "url": f"{s['url']}#{now:%Y%m%d}", "published": now.isoformat()}
+               "url": f"{s['url']}#{now:%Y%m%d}",
+               "published": dt.datetime.fromtimestamp(int(d["timestamp"]), UTC).isoformat()}
     elif "coingecko" in s["url"]:
         coins = requests.get(s["url"], headers=UA, timeout=20).json()["coins"][:7]
         yield {"title": "CoinGecko trending coins: " + ", ".join(c["item"]["name"] for c in coins), "body": "",
-               "url": f"{s['url']}#{now:%Y%m%d}{now.hour // 6}", "published": now.isoformat()}
+               "url": f"{s['url']}#{now:%Y%m%d}{now.hour // 6}", "published": None}
 
 
 FETCH = {"rss": fetch_rss, "telegram": fetch_tg, "api": fetch_api}
@@ -327,8 +334,8 @@ def fmt(n, lang):
     icon = "🔴" if s >= 9 else "🟠" if s >= 7 else "🟢"
     head = f"{icon} <b>{brk} | {cat}</b>" if s >= 9 else f"{icon} <b>{cat}</b>"
     body = html.escape(n["summaries"].get(lang) or n["summaries"]["en"])
-    date = fmt_date(n.get("published_at") or n.get("created_at"))
-    return f"{head}\n{body}\n📊 {imp}: {s}/10 · 📅 {date}"
+    when = fmt_dt(n.get("published_at"), lang)          # shudhu source-er somoy; na thakle kichu dekhabe na
+    return f"{head}\n{body}\n📊 {imp}: {s}/10" + (f" · {when}" if when else "")
 
 
 def active_users():
@@ -356,6 +363,32 @@ def send_broadcasts():
         db("DELETE", f"broadcasts?id=eq.{b['id']}")
 
 
+# ---------------- market cache (Worker-er calculator/movers fallback) ----------------
+def refresh_market():
+    try:
+        lst = None
+        r = requests.get("https://api.coingecko.com/api/v3/coins/markets", headers=UA, timeout=20,
+                         params={"vs_currency": "usd", "order": "market_cap_desc", "per_page": 100, "page": 1, "sparkline": "false"})
+        if r.status_code == 200:
+            lst = [{"s": str(x["symbol"]).upper(), "p": x["current_price"], "c": x.get("price_change_percentage_24h"),
+                    "v": x.get("total_volume")} for x in r.json()]
+        if not lst:
+            r = requests.get("https://min-api.cryptocompare.com/data/top/mktcapfull", headers=UA, timeout=20,
+                             params={"limit": 100, "tsym": "USD"})
+            if r.status_code == 200:
+                lst = [{"s": str(d["CoinInfo"]["Name"]).upper(), "p": d["RAW"]["USD"]["PRICE"],
+                        "c": d["RAW"]["USD"].get("CHANGEPCT24HOUR"), "v": d["RAW"]["USD"].get("TOTALVOLUME24HTO")}
+                       for d in r.json().get("Data", []) if d.get("RAW", {}).get("USD")]
+        if lst:
+            db("POST", "market_cache", json={"key": "top100", "value": lst, "updated_at": dt.datetime.now(UTC).isoformat()},
+               headers={"Prefer": "resolution=merge-duplicates"})
+            print("market cache refreshed:", len(lst))
+        else:
+            print("market cache: no source worked")
+    except Exception as e:
+        print("market cache failed:", str(e)[:200])
+
+
 # ---------------- main ----------------
 def main():
     global S
@@ -363,6 +396,7 @@ def main():
     send_broadcasts()
     if S.get("paused") == "1":
         return print("paused by admin")
+    refresh_market()
     items = only_new(collect(db("GET", "sources?enabled=eq.true&select=*&order=id")))
     print("new items:", len(items))
     if not items:
@@ -400,7 +434,7 @@ def main():
     print(f"analyzed: {len(analyzed)}, stored: {len(stored)}")
     push([r for r in stored if not r["sent"]], users)
 
-    cut = (dt.datetime.now(UTC) - dt.timedelta(days=30)).isoformat()
+    cut = (dt.datetime.now(UTC) - dt.timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")   # "+" chinh URL-e bhenge jay, tai Z
     db("DELETE", f"news?created_at=lt.{cut}")                    # 500MB limit-er moddhe thakar jonno
 
 
