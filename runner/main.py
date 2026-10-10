@@ -1,4 +1,4 @@
-"""Inside Info - news fetcher + AI summarizer + Telegram pusher (runs on GitHub Actions)."""
+"""Inside Info v2 - fetch -> AI analyze -> translate -> push (runs on GitHub Actions)."""
 import os, re, json, time, html, hashlib, datetime as dt
 import requests, feedparser
 from bs4 import BeautifulSoup
@@ -6,31 +6,42 @@ from bs4 import BeautifulSoup
 SB = os.environ["SUPABASE_URL"].rstrip("/") + "/rest/v1"
 KEY = os.environ["SUPABASE_KEY"]
 BOT = os.environ["TELEGRAM_BOT_TOKEN"]
-UA = {"User-Agent": "Mozilla/5.0 (compatible; InsideInfoBot/1.0)"}
-LANGS = ["en", "bn", "hi", "ru", "zh"]
+UA = {"User-Agent": "Mozilla/5.0 (compatible; InsideInfoBot/2.0)"}
+UTC = dt.timezone.utc
 CATS = ["crypto", "finance", "world", "bd"]
+VISIBLE = 5                      # score 5+ menu-te dekhay
+START = time.time()
 S = {}
 
-L = {"en": ("BREAKING", "Impact", "Source"), "bn": ("ব্রেকিং", "প্রভাব", "সোর্স"),
-     "hi": ("ब्रेकिंग", "प्रभाव", "स्रोत"), "ru": ("СРОЧНО", "Влияние", "Источник"), "zh": ("突发", "影响", "来源")}
+L = {"en": ("BREAKING", "Impact"), "bn": ("ব্রেকিং", "প্রভাব"), "hi": ("ब्रेकिंग", "प्रभाव"),
+     "ru": ("СРОЧНО", "Влияние"), "zh": ("突发", "影响")}
 CN = {"en": ["Crypto", "Finance", "World", "Bangladesh"], "bn": ["ক্রিপ্টো", "ফাইন্যান্স", "বিশ্ব", "বাংলাদেশ"],
       "hi": ["क्रिप्टो", "फाइनेंस", "विश्व", "बांग्लादेश"], "ru": ["Крипто", "Финансы", "Мир", "Бангладеш"],
       "zh": ["加密货币", "金融", "国际", "孟加拉国"]}
 
-PROMPT = """You are the news editor of "Inside Info". The user sends a JSON list of raw news items.
-Return ONLY JSON: {"items":[{"i":<index>,"category":"crypto|finance|world|bd","score":<1-10>,"text":{"en":"","bn":"","hi":"","ru":"","zh":""}}]}
+PROMPT_A = """You are the news editor of "Inside Info". Input: a JSON list of raw items {"i","src","hint","text"}.
+Return ONLY valid JSON: {"items":[{"i":<index>,"category":"crypto|finance|world|bd","score":<1-10>,"en":"<English news text>"}]}
 Rules:
-- text = clear headline + at most one short context sentence, max 260 characters per language. Translate faithfully, keep tickers, names and numbers exact. Never invent facts.
-- score = real impact: 9-10 breaking/major (hack, ETF decision, crash, war, central bank move, big whale move), 7-8 important, 5-6 normal, 1-4 minor/promotional.
-- Ads, giveaways, referral links, price-chatter with no news => score 1-2.
-- Bangladesh items: category "bd"; give a high score only for major national events.
-- Respond with valid JSON only, no markdown."""
+- en = a clear headline plus at most one short sentence of context, max 240 characters. Rewrite in your own words, keep tickers, names and numbers exact, never invent facts.
+- category: crypto = crypto, blockchain, DeFi, whales, exchanges; finance = stocks, rates, inflation, central banks, commodities, forex; world = global politics, wars, major world events, big tech and AI industry news; bd = anything about Bangladesh.
+- score = real impact: 9-10 breaking/major (hack, ETF decision, market crash, war, central-bank move, huge whale move), 7-8 important, 5-6 normal news, 1-4 minor, promotional or opinion.
+- Ads, giveaways, referral links, empty price chatter => score 1-2.
+- If several items report the same event, keep the best one with its real score and give the others score 1.
+- Bangladesh items: give a high score only for major national events.
+- Output every input index exactly once. JSON only, no markdown."""
+
+PROMPT_T = """You are a professional news translator. Input: {"langs":[codes],"items":[{"i","en"}]}.
+Return ONLY valid JSON: {"items":[{"i":<index>,"<code>":"<translation>", ...one key per requested code}]}.
+Codes: bn=Bengali, hi=Hindi, ru=Russian, zh=Simplified Chinese. Natural journalistic tone, faithful meaning,
+keep tickers, coin names, numbers and proper names. Max 260 characters per translation. JSON only, no markdown."""
 
 
+# ---------------- helpers ----------------
 def db(method, path, **kw):
     h = {"apikey": KEY, "Authorization": "Bearer " + KEY, "Content-Type": "application/json", **kw.pop("headers", {})}
     r = requests.request(method, f"{SB}/{path}", headers=h, timeout=30, **kw)
-    r.raise_for_status()
+    if r.status_code >= 400:
+        raise RuntimeError(f"supabase {r.status_code}: {r.text[:300]}")
     return r.json() if r.text else None
 
 
@@ -38,44 +49,101 @@ def clean(t):
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html.unescape(t or ""))).strip()
 
 
-# ---------- fetchers ----------
+def iso(v):
+    try:
+        d = dt.datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+        return (d if d.tzinfo else d.replace(tzinfo=UTC)).astimezone(UTC).isoformat()
+    except Exception:
+        return None
+
+
+def age_h(x):
+    if not x.get("published"):
+        return 0
+    try:
+        return (dt.datetime.now(UTC) - dt.datetime.fromisoformat(x["published"])).total_seconds() / 3600
+    except Exception:
+        return 0
+
+
+def fmt_date(v):
+    try:
+        return dt.datetime.fromisoformat(str(v).replace("Z", "+00:00")).strftime("%d.%m.%Y")
+    except Exception:
+        return ""
+
+
+def parse_json(text):
+    text = re.sub(r"^```(?:json)?|```$", "", text.strip(), flags=re.M).strip()
+    return json.loads(text[text.find("{"): text.rfind("}") + 1])
+
+
+# ---------------- fetchers ----------------
 def fetch_rss(s):
     r = requests.get(s["url"], headers=UA, timeout=20)
-    for e in feedparser.parse(r.content).entries[:10]:
-        yield {"title": clean(e.get("title"))[:300], "body": clean(e.get("summary"))[:400], "url": e.get("link")}
+    for e in feedparser.parse(r.content).entries[:12]:
+        t = e.get("published_parsed") or e.get("updated_parsed")
+        pub = dt.datetime(*t[:6], tzinfo=UTC).isoformat() if t else None
+        yield {"title": clean(e.get("title"))[:300], "body": clean(e.get("summary"))[:400], "url": e.get("link"), "published": pub}
 
 
 def fetch_tg(s):
     name = s["url"].rstrip("/").split("/")[-1]
     soup = BeautifulSoup(requests.get(f"https://t.me/s/{name}", headers=UA, timeout=20).text, "html.parser")
-    for w in soup.select(".tgme_widget_message")[-10:]:
+    for w in soup.select(".tgme_widget_message")[-8:]:
         txt, a = w.select_one(".tgme_widget_message_text"), w.select_one("a.tgme_widget_message_date")
-        if txt and a and a.get("href"):
-            yield {"title": txt.get_text(" ", strip=True)[:600], "body": "", "url": a["href"]}
+        if not (txt and a and a.get("href")):
+            continue
+        t = a.select_one("time")
+        pub = iso(t.get("datetime")) if t and t.get("datetime") else None
+        for br in txt.find_all("br"):
+            br.replace_with("\n")
+        text = re.sub(r"[ \t]+", " ", txt.get_text()).strip()
+        blocks = [b.strip() for b in re.split(r"\n\s*\n", text) if len(b.strip()) > 30]
+        if len(text) > 500 and len(blocks) >= 3:          # daily brief (jemon aixbt): prottek khobor alada item
+            for b in blocks[:15]:
+                one = re.sub(r"\s+", " ", b.replace("\n", " — ", 1))[:500]
+                yield {"title": one, "body": "", "url": a["href"], "published": pub,
+                       "hash": hashlib.sha1(("blk:" + one.lower()).encode()).hexdigest()}
+        else:
+            yield {"title": re.sub(r"\s+", " ", text)[:600], "body": "", "url": a["href"], "published": pub}
 
 
 def fetch_api(s):
-    now = dt.datetime.utcnow()
+    now = dt.datetime.now(UTC)
     if "alternative.me" in s["url"]:
         d = requests.get(s["url"], timeout=20).json()["data"][0]
-        yield {"title": f"Crypto Fear & Greed Index: {d['value']} ({d['value_classification']})", "body": "", "url": f"{s['url']}#{now:%Y%m%d}"}
+        yield {"title": f"Crypto Fear & Greed Index: {d['value']} ({d['value_classification']})", "body": "",
+               "url": f"{s['url']}#{now:%Y%m%d}", "published": now.isoformat()}
     elif "coingecko" in s["url"]:
         coins = requests.get(s["url"], headers=UA, timeout=20).json()["coins"][:7]
         yield {"title": "CoinGecko trending coins: " + ", ".join(c["item"]["name"] for c in coins), "body": "",
-               "url": f"{s['url']}#{now:%Y%m%d}{now.hour // 6}"}
+               "url": f"{s['url']}#{now:%Y%m%d}{now.hour // 6}", "published": now.isoformat()}
+
+
+FETCH = {"rss": fetch_rss, "telegram": fetch_tg, "api": fetch_api}
 
 
 def collect(sources):
     out = {}
     for s in sources:
+        n = 0
         try:
-            fn = {"rss": fetch_rss, "telegram": fetch_tg, "api": fetch_api}[s["type"]]
-            for it in fn(s):
+            for it in FETCH[s["type"]](s):
                 if it.get("url") and it["title"]:
-                    h = hashlib.sha1(it["url"].encode()).hexdigest()
-                    out.setdefault(h, {**it, "source": s["name"], "hint": s["category"], "hash": h})
+                    h = it.get("hash") or hashlib.sha1(it["url"].encode()).hexdigest()
+                    if h not in out:
+                        out[h] = {**it, "source": s["name"], "hint": s["category"], "hash": h}
+                        n += 1
+            status = str(n)
         except Exception as e:
             print("SOURCE ERROR", s["name"], e)
+            status = "ERR"
+        print(f"  {s['name']}: {status}")
+        try:
+            db("PATCH", f"sources?id=eq.{s['id']}", json={"last_status": status})
+        except Exception:
+            pass
     return list(out.values())
 
 
@@ -87,40 +155,160 @@ def only_new(items):
     return [x for x in items if x["hash"] not in seen]
 
 
-# ---------- AI ----------
-def call_ai(provider, msg):
-    if provider == "gemini":
-        model = S.get("gemini_model", "gemini-2.5-flash")
-        r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-                          headers={"x-goog-api-key": os.environ["GEMINI_API_KEY"]}, timeout=120,
-                          json={"systemInstruction": {"parts": [{"text": PROMPT}]}, "contents": [{"parts": [{"text": msg}]}],
-                                "generationConfig": {"responseMimeType": "application/json", "temperature": 0.2}})
-        r.raise_for_status()
-        return r.json()["candidates"][0]["content"]["parts"][0]["text"]
-    model = S.get("groq_model", "llama-3.3-70b-versatile")
-    r = requests.post("https://api.groq.com/openai/v1/chat/completions",
-                      headers={"Authorization": "Bearer " + os.environ["GROQ_API_KEY"]}, timeout=120,
-                      json={"model": model, "temperature": 0.2, "response_format": {"type": "json_object"},
-                            "messages": [{"role": "system", "content": PROMPT}, {"role": "user", "content": msg}]})
+def interleave(items):
+    """Source-gulo ghuriye ghuriye nao, jate Bangladesh/world-er source-o ekdom shuru theke jayga pay."""
+    groups = {}
+    for x in sorted(items, key=lambda x: x.get("published") or "", reverse=True):
+        groups.setdefault(x["source"], []).append(x)
+    lists, out = list(groups.values()), []
+    while any(lists):
+        for lst in lists:
+            if lst:
+                out.append(lst.pop(0))
+    return out
+
+
+def baseline(items):
+    rows = [{"url_hash": x["hash"], "url": x["url"], "source": x["source"], "title": x["title"][:300], "category": x["hint"],
+             "score": 0, "summaries": {"en": x["title"][:260]}, "published_at": x.get("published"), "sent": True} for x in items]
+    for i in range(0, len(rows), 200):
+        db("POST", "news", json=rows[i:i + 200], headers={"Prefer": "resolution=ignore-duplicates"})
+
+
+# ---------------- AI ----------------
+def post(url, **kw):
+    for attempt in (1, 2):
+        r = requests.post(url, timeout=150, **kw)
+        if r.status_code == 429 and attempt == 1:
+            try:
+                wait = float(r.headers.get("retry-after") or 20)
+            except ValueError:
+                wait = 20
+            time.sleep(min(wait, 60))
+            continue
+        break
+    if r.status_code >= 400:
+        raise RuntimeError(f"{r.status_code} {r.text[:300]}")
+    return r
+
+
+def save_setting(key, value):
+    try:
+        db("POST", "settings", json={"key": key, "value": str(value)}, headers={"Prefer": "resolution=merge-duplicates"})
+    except Exception as e:
+        print("save_setting failed", e)
+
+
+def gemini_call(model, system, msg):
+    r = post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+             headers={"x-goog-api-key": os.environ["GEMINI_API_KEY"]},
+             json={"systemInstruction": {"parts": [{"text": system}]}, "contents": [{"parts": [{"text": msg}]}],
+                   "generationConfig": {"responseMimeType": "application/json", "temperature": 0.2}})
+    parts = r.json()["candidates"][0]["content"]["parts"]
+    return "".join(p.get("text", "") for p in parts if not p.get("thought"))
+
+
+def gemini_discover():
+    """Model-er naam 404 dile Google-er list theke ekta chalu flash model khuje ber kore."""
+    r = requests.get("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",
+                     headers={"x-goog-api-key": os.environ["GEMINI_API_KEY"]}, timeout=30)
     r.raise_for_status()
+    names = [m["name"].split("/")[-1] for m in r.json().get("models", [])
+             if "generateContent" in m.get("supportedGenerationMethods", [])]
+    if "gemini-flash-latest" in names:
+        return "gemini-flash-latest"
+    bad = ("lite", "image", "tts", "live", "audio", "thinking", "exp", "embedding")
+    cand = [n for n in names if "flash" in n and not any(b in n for b in bad)]
+    ver = lambda n: [float(v) for v in re.findall(r"\d+\.?\d*", n)]
+    return max(cand, key=ver) if cand else None
+
+
+def call_ai(provider, system, msg):
+    if provider == "gemini":
+        model = S.get("gemini_model") or "gemini-flash-latest"
+        try:
+            return gemini_call(model, system, msg)
+        except RuntimeError as e:
+            if str(e).startswith("404"):
+                new = gemini_discover()
+                if new and new != model:
+                    print("gemini model switched:", model, "->", new)
+                    S["gemini_model"] = new
+                    save_setting("gemini_model", new)
+                    return gemini_call(new, system, msg)
+            raise
+    model = S.get("groq_model") or "openai/gpt-oss-120b"
+    body = {"model": model, "temperature": 0.2, "max_completion_tokens": 8192,
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": msg}]}
+    if "gpt-oss" in model:
+        body["reasoning_effort"] = "low"
+    r = post("https://api.groq.com/openai/v1/chat/completions",
+             headers={"Authorization": "Bearer " + os.environ["GROQ_API_KEY"]}, json=body)
     return r.json()["choices"][0]["message"]["content"]
 
 
-def ai_batch(items):
+def ai_json(system, msg):
     primary = S.get("ai_provider", "gemini")
-    msg = json.dumps([{"i": i, "source": x["source"], "hint": x["hint"], "title": x["title"], "body": x["body"]}
-                      for i, x in enumerate(items)], ensure_ascii=False)
     for p in [primary] + [q for q in ("gemini", "groq") if q != primary]:
         if not os.environ.get("GEMINI_API_KEY" if p == "gemini" else "GROQ_API_KEY"):
             continue
         try:
-            return json.loads(call_ai(p, msg))["items"]
+            return parse_json(call_ai(p, system, msg))
         except Exception as e:
-            print("AI FAIL", p, e)
-    return []
+            print("AI FAIL", p, str(e)[:400])
+    return None
 
 
-# ---------- Telegram ----------
+def analyze(items):
+    out = []
+    for i in range(0, len(items), 12):
+        if time.time() - START > 480:
+            print("time budget reached, rest next run")
+            break
+        chunk = items[i:i + 12]
+        msg = json.dumps([{"i": k, "src": x["source"], "hint": x["hint"],
+                           "text": (x["title"] + (" — " + x["body"] if x["body"] else ""))[:700]}
+                          for k, x in enumerate(chunk)], ensure_ascii=False)
+        data = ai_json(PROMPT_A, msg)
+        if not data:
+            print("analysis failed for a chunk, retry next run")
+            continue
+        for r in data.get("items", []):
+            try:
+                x = chunk[int(r["i"])]
+                en = clean(str(r.get("en", "")))[:280]
+                if not en:
+                    continue
+                cat = r.get("category") if r.get("category") in CATS else x["hint"]
+                if x["hint"] == "bd":
+                    cat = "bd"
+                out.append({"x": x, "category": cat, "score": max(1, min(10, int(r.get("score", 5)))), "en": en})
+            except Exception as e:
+                print("ROW ERROR", e)
+    return out
+
+
+def translate(rows, langs):
+    todo = [r for r in rows if r["score"] >= VISIBLE]
+    for i in range(0, len(todo), 8):
+        if time.time() - START > 540:
+            break
+        chunk = todo[i:i + 8]
+        msg = json.dumps({"langs": langs, "items": [{"i": k, "en": r["en"]} for k, r in enumerate(chunk)]}, ensure_ascii=False)
+        data = ai_json(PROMPT_T, msg)
+        if not data:
+            continue
+        for t in data.get("items", []):
+            try:
+                r = chunk[int(t["i"])]
+                for lg in langs:
+                    if t.get(lg):
+                        r.setdefault("tr", {})[lg] = clean(str(t[lg]))[:300]
+            except Exception:
+                pass
+
+
+# ---------------- Telegram ----------------
 def tg_send(chat, text):
     r = requests.post(f"https://api.telegram.org/bot{BOT}/sendMessage", timeout=20,
                       json={"chat_id": chat, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True})
@@ -133,27 +321,32 @@ def tg_send(chat, text):
 
 
 def fmt(n, lang):
-    b, imp, src = L[lang]
+    brk, imp = L[lang]
     s = n["score"]
     cat = CN[lang][CATS.index(n["category"])]
     icon = "🔴" if s >= 9 else "🟠" if s >= 7 else "🟢"
-    head = f"{icon} <b>{b} | {cat}</b>" if s >= 9 else f"{icon} <b>{cat}</b>"
+    head = f"{icon} <b>{brk} | {cat}</b>" if s >= 9 else f"{icon} <b>{cat}</b>"
     body = html.escape(n["summaries"].get(lang) or n["summaries"]["en"])
-    return f'{head}\n{body}\n📊 {imp}: {s}/10\n🔗 {src}: <a href="{html.escape(n["url"])}">{html.escape(n["source"])}</a>'
+    date = fmt_date(n.get("published_at") or n.get("created_at"))
+    return f"{head}\n{body}\n📊 {imp}: {s}/10 · 📅 {date}"
 
 
 def active_users():
-    return db("GET", "users?select=chat_id,lang,cats,min_score&blocked=eq.false&lang=not.is.null")
+    return db("GET", "users?select=chat_id,lang,cats,min_score&blocked=eq.false&lang=not.is.null") or []
 
 
-def push(rows):
-    users, floor = active_users(), int(S.get("push_min_score", 5))
-    for n in sorted(rows, key=lambda r: -r["score"]):
-        if n["score"] >= floor:
-            for u in users:
-                if n["category"] in u["cats"] and n["score"] >= u["min_score"]:
-                    tg_send(u["chat_id"], fmt(n, u["lang"]))
-        db("PATCH", f"news?id=eq.{n['id']}", json={"sent": True})
+def push(rows, users):
+    if not rows:
+        return
+    rows.sort(key=lambda n: n.get("published_at") or "", reverse=True)
+    rows.sort(key=lambda n: -n["score"])
+    limit = int(S.get("max_push_per_run", 12))
+    for n in rows[:limit]:
+        for u in users:
+            if n["category"] in u["cats"] and n["score"] >= u["min_score"]:
+                tg_send(u["chat_id"], fmt(n, u["lang"]))
+    db("PATCH", f"news?id=in.({','.join(str(n['id']) for n in rows)})", json={"sent": True})
+    print("pushed:", min(len(rows), limit))
 
 
 def send_broadcasts():
@@ -163,45 +356,52 @@ def send_broadcasts():
         db("DELETE", f"broadcasts?id=eq.{b['id']}")
 
 
-# ---------- main ----------
+# ---------------- main ----------------
 def main():
     global S
     S = {r["key"]: r["value"] for r in db("GET", "settings?select=key,value")}
     send_broadcasts()
     if S.get("paused") == "1":
         return print("paused by admin")
-    items = only_new(collect(db("GET", "sources?enabled=eq.true&select=*")))
+    items = only_new(collect(db("GET", "sources?enabled=eq.true&select=*&order=id")))
     print("new items:", len(items))
     if not items:
         return
-    if db("GET", "news?select=id&limit=1") == []:      # prothom run: shudhu baseline, push na
-        rows = [{"url_hash": x["hash"], "url": x["url"], "source": x["source"], "title": x["title"][:300],
-                 "category": x["hint"], "score": 0, "summaries": {"en": x["title"][:260]}, "sent": True} for x in items]
-        for i in range(0, len(rows), 200):
-            db("POST", "news", json=rows[i:i + 200], headers={"Prefer": "resolution=ignore-duplicates"})
-        return print("baseline stored:", len(rows))
-    items = items[:int(S.get("max_per_run", 32))]
+    if db("GET", "news?select=id&limit=1") == []:                 # prothom run: shudhu baseline
+        baseline(items)
+        return print("baseline stored:", len(items))
+
+    ai_age = float(S.get("ai_max_age_hours", 48))
+    fresh = [x for x in items if age_h(x) <= ai_age]
+    fresh_hashes = {x["hash"] for x in fresh}
+    stale = [x for x in items if x["hash"] not in fresh_hashes]
+    if stale:
+        baseline(stale)
+        print("old items skipped (no AI):", len(stale))
+    fresh = interleave(fresh)[:int(S.get("max_per_run", 60))]
+
+    users = active_users()
+    langs = sorted({u["lang"] for u in users} - {"en"})
+    analyzed = analyze(fresh)
+    if analyzed and langs:
+        translate(analyzed, langs)
+
+    floor, push_age = int(S.get("push_min_score", 5)), float(S.get("push_max_age_hours", 4))
+    rows = []
+    for r in analyzed:
+        x = r["x"]
+        can_push = r["score"] >= floor and age_h(x) <= push_age
+        rows.append({"url_hash": x["hash"], "url": x["url"], "source": x["source"], "title": x["title"][:300],
+                     "category": r["category"], "score": r["score"], "summaries": {"en": r["en"], **r.get("tr", {})},
+                     "published_at": x.get("published"), "sent": not can_push})
     stored = []
-    for i in range(0, len(items), 8):
-        chunk = items[i:i + 8]
-        rows = []
-        for r in ai_batch(chunk):
-            try:
-                x, txt = chunk[int(r["i"])], r.get("text") or {}
-                if not txt.get("en"):
-                    continue
-                cat = r.get("category") if r.get("category") in CATS else x["hint"]
-                rows.append({"url_hash": x["hash"], "url": x["url"], "source": x["source"], "title": x["title"][:300],
-                             "category": "bd" if x["hint"] == "bd" else cat,
-                             "score": max(1, min(10, int(r.get("score", 5)))), "summaries": txt, "sent": False})
-            except Exception as e:
-                print("ROW ERROR", e)
-        if rows:
-            stored += db("POST", "news", json=rows, headers={"Prefer": "return=representation,resolution=ignore-duplicates"}) or []
-        time.sleep(4)                                    # free rate limit-er jonno
-    push([r for r in stored if not r["sent"]])
-    cut = (dt.datetime.utcnow() - dt.timedelta(days=30)).isoformat()
-    db("DELETE", f"news?created_at=lt.{cut}")           # 500MB limit-er moddhe thakar jonno
+    if rows:
+        stored = db("POST", "news", json=rows, headers={"Prefer": "return=representation,resolution=ignore-duplicates"}) or []
+    print(f"analyzed: {len(analyzed)}, stored: {len(stored)}")
+    push([r for r in stored if not r["sent"]], users)
+
+    cut = (dt.datetime.now(UTC) - dt.timedelta(days=30)).isoformat()
+    db("DELETE", f"news?created_at=lt.{cut}")                    # 500MB limit-er moddhe thakar jonno
 
 
 if __name__ == "__main__":
