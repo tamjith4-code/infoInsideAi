@@ -1,15 +1,15 @@
 name: fetch-news
 on:
+  workflow_dispatch:        # Cloudflare Worker prottek 5 min-e eta trigger kore
   schedule:
-    - cron: "*/10 * * * *"
-  workflow_dispatch:
+    - cron: "*/15 * * * *"  # backup, jodi Worker trigger kaj na kore
 concurrency:
   group: news
   cancel-in-progress: false
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 9
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -18,7 +18,7 @@ jobs:
           cache: pip
           cache-dependency-path: runner/requirements.txt
       - run: pip install -r runner/requirements.txt
-      - run: python runner/main.py
+      - run: python -W ignore runner/main.py
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
