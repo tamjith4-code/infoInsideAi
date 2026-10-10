@@ -306,16 +306,26 @@ async function pricesView(env, id, mid, lang) {
   if (btc && eth) {
     await cacheSet(env, 'stats', { btc, eth });
   } else {
+    // live na paile runner/ager cache
     const c = await cacheGet(env, 'stats');
-    if (!c) return show(env, id, mid, t.err, kb);
-    btc = c.value.btc; eth = c.value.eth;
-    note = ` (cached ${Math.max(1, Math.round((Date.now() - new Date(c.updated_at)) / 60000))} min)`;
+    if (c && c.value && c.value.btc && c.value.eth) {
+      btc = c.value.btc; eth = c.value.eth;
+      note = ` (cached ${Math.max(1, Math.round((Date.now() - new Date(c.updated_at)) / 60000))} min)`;
+    } else { btc = null; eth = null; }
   }
   const list = await top100(env);
-  if (list) { const gv = (s) => { const x = list.find((y) => y.s === s); return x && x.v ? x.v : null; }; btc.gv = gv('BTC'); eth.gv = gv('ETH'); }
   const d = new Date();
-  const text = `${coinBlock('BTC', '₿ Bitcoin', btc, t)}\n\n${coinBlock('ETH', 'Ξ Ethereum', eth, t)}\n\n🕒 ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())} UTC${note}`;
-  return show(env, id, mid, text, kb);
+  const clock = `🕒 ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())} UTC${note}`;
+  if (btc && eth) {
+    if (list) { const gv = (s) => { const x = list.find((y) => y.s === s); return x && x.v ? x.v : null; }; btc.gv = gv('BTC'); eth.gv = gv('ETH'); }
+    return show(env, id, mid, `${coinBlock('BTC', '₿ Bitcoin', btc, t)}\n\n${coinBlock('ETH', 'Ξ Ethereum', eth, t)}\n\n${clock}`, kb);
+  }
+  // exchange data kothao paoa jay ni: top-100 theke shudhu price, 24h change ar global volume
+  const row = (sy) => (list ? list.find((x) => x.s === sy) : null);
+  const b = row('BTC'), e = row('ETH');
+  if (!b || !e) return show(env, id, mid, t.err, kb);
+  const simple = (name, x) => [`<b>${name}</b>  $${price(x.p)}`, x.c != null ? `24h ${pct(x.c)}` : null, x.v ? `🌐 ${t.gvol}: ${usd(x.v)}` : null].filter((v) => v !== null).join('\n');
+  return show(env, id, mid, `${simple('₿ Bitcoin', b)}\n\n${simple('Ξ Ethereum', e)}\n\n${clock}`, kb);
 }
 
 async function moversView(env, id, lang) {
@@ -356,7 +366,9 @@ async function diag(env, id) {
     } catch (e) { return `❌ ${n}: ${esc(e.message || e)}`; }
   }));
   const c = await cacheGet(env, 'top100');
+  const cs = await cacheGet(env, 'stats');
   lines.push(`🗄 cache top100: ${c ? c.updated_at : 'empty'}`);
+  lines.push(`🗄 cache stats: ${cs ? cs.updated_at : 'empty'}`);
   return send(env, id, `🔧 <b>Diagnostics</b>\n${lines.join('\n')}`);
 }
 
