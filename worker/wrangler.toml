@@ -1,3 +1,7 @@
 name = "infoinsideai"
 main = "src/index.js"
 compatibility_date = "2025-01-01"
+
+# Prottek 5 minute-e GitHub Actions workflow trigger kore (GitHub-er nijer cron onek deri kore)
+[triggers]
+crons = ["*/5 * * * *"]
