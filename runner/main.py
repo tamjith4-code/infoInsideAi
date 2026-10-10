@@ -389,6 +389,51 @@ def refresh_market():
         print("market cache failed:", str(e)[:200])
 
 
+def _kraken(path, **params):
+    r = requests.get(f"https://api.kraken.com/0/public/{path}", params=params, headers=UA, timeout=20)
+    r.raise_for_status()
+    j = r.json()
+    if j.get("error"):
+        raise RuntimeError(str(j["error"])[:100])
+    return j["result"]
+
+
+def kraken_stats(pair):
+    now = int(time.time())
+    d = dt.datetime.now(UTC)
+    this_m = int(dt.datetime(d.year, d.month, 1, tzinfo=UTC).timestamp())
+    py, pm = (d.year, d.month - 1) if d.month > 1 else (d.year - 1, 12)
+    prev_m = int(dt.datetime(py, pm, 1, tzinfo=UTC).timestamp())
+    T = list(_kraken("Ticker", pair=pair).values())[0]
+    time.sleep(1)
+
+    def rows(interval, since):
+        res = _kraken("OHLC", pair=pair, interval=interval, since=since)
+        key = next(k for k in res if k != "last")
+        time.sleep(1)
+        return [{"t": x[0], "o": float(x[1]), "c": float(x[4]), "w": float(x[5]) or float(x[4]), "v": float(x[6])} for x in res[key]]
+
+    m5, h1, d1 = rows(5, now - 6 * 3600 - 600), rows(60, now - 7 * 86400 - 3600), rows(1440, prev_m - 86400)
+    sm = lambda a: {"q": sum(x["v"] * x["w"] for x in a), "b": sum(x["v"] for x in a)}
+    chg = lambda a, n: (a[-n:][-1]["c"] / a[-n:][0]["o"] - 1) * 100
+    nz = lambda o: o if o["b"] > 0 else None
+    return {"src": "Kraken", "quote": "USD", "last": float(T["c"][0]), "high": float(T["h"][1]), "low": float(T["l"][1]),
+            "c1h": chg(m5, 12), "c6h": chg(m5, 72), "c24h": chg(h1, 24), "c7d": chg(h1, 168), "c30d": chg(d1, 30),
+            "v1h": sm(m5[-12:]), "v6h": sm(m5[-72:]), "v24h": {"b": float(T["v"][1]), "q": float(T["v"][1]) * float(T["p"][1])},
+            "v7d": sm(h1[-168:]), "v30d": sm(d1[-30:]),
+            "vm": nz(sm([x for x in d1 if this_m <= x["t"]])), "vlm": nz(sm([x for x in d1 if prev_m <= x["t"] < this_m]))}
+
+
+def refresh_stats():
+    try:
+        out = {"btc": kraken_stats("XBTUSD"), "eth": kraken_stats("ETHUSD")}
+        db("POST", "market_cache", json={"key": "stats", "value": out, "updated_at": dt.datetime.now(UTC).isoformat()},
+           headers={"Prefer": "resolution=merge-duplicates"})
+        print("stats cache refreshed")
+    except Exception as e:
+        print("stats cache failed:", str(e)[:200])
+
+
 # ---------------- main ----------------
 def main():
     global S
@@ -397,6 +442,7 @@ def main():
     if S.get("paused") == "1":
         return print("paused by admin")
     refresh_market()
+    refresh_stats()
     items = only_new(collect(db("GET", "sources?enabled=eq.true&select=*&order=id")))
     print("new items:", len(items))
     if not items:
